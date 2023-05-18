@@ -72,7 +72,6 @@ public class UriEngineer {
                         System.out.print("\n");
                     });
                 } else {
-
                     pc.getCollectedPrefixes().forEach(System.out::println);
                 }
             } else if (method.equals(REFACTOR_PREFIXES)) {

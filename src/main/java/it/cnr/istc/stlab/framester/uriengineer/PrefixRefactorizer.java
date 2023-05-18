@@ -37,6 +37,7 @@ public class PrefixRefactorizer implements Action {
         this.prefixMap = loadPrefixMap(mappingFile);
         this.input = input;
         this.output = output;
+        new File(output).mkdirs();
         this.pattern = createRegexWithKeys(prefixMap);
     }
 
