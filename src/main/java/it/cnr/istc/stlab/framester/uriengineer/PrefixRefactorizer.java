@@ -1,177 +1,131 @@
 package it.cnr.istc.stlab.framester.uriengineer;
 
-
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
+import it.cnr.istc.stlab.lgu.commons.semanticweb.iterators.ClosableIterator;
+import it.cnr.istc.stlab.lgu.commons.semanticweb.streams.StreamRDFUtils;
 import org.apache.commons.compress.compressors.CompressorException;
-import org.apache.commons.configuration2.Configuration;
-import org.apache.commons.configuration2.builder.fluent.Configurations;
-import org.apache.commons.configuration2.ex.ConfigurationException;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.jena.graph.Graph;
 import org.apache.jena.graph.Node;
 import org.apache.jena.graph.NodeFactory;
 import org.apache.jena.graph.Triple;
-import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.riot.Lang;
 import org.apache.jena.riot.RDFLanguages;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.system.StreamRDFWriter;
-import org.apache.jena.sparql.graph.GraphFactory;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
+import org.apache.jena.sparql.core.Quad;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.github.jsonldjava.shaded.com.google.common.collect.Sets;
+import java.io.*;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-//import au.com.bytecode.opencsv.CSVReader;
-import it.cnr.istc.stlab.lgu.commons.semanticweb.iterators.ClosableIterator;
-import it.cnr.istc.stlab.lgu.commons.semanticweb.streams.StreamRDFUtils;
+public class PrefixRefactorizer implements Action {
+    private static final Logger logger = LoggerFactory.getLogger(PrefixRefactorizer.class);
+    private final Map<String, String> prefixMap;
+    private final String input;
+    private final String output;
 
-public class PrefixRefactorizer {
+    private final Pattern pattern;
 
-	private static final Logger logger = LogManager.getLogger(PrefixRefactorizer.class);
-	private static final Set<String> rdfExtensions = Sets.newHashSet("ttl", "nt", "rdf", "owl");
+    public PrefixRefactorizer(String input, String output, String mappingFile) throws IOException {
+        logger.info("Input {}\nOutput {}\nMapping file {}", input, output, mappingFile);
+        this.prefixMap = loadPrefixMap(mappingFile);
+        this.input = input;
+        this.output = output;
+        this.pattern = createRegexWithKeys(prefixMap);
+    }
 
-	public static void main(String[] args) throws CompressorException, IOException {
-		try {
-			Configurations configs = new Configurations();
-			Configuration config = configs.properties("config.properties");
+    private Pattern createRegexWithKeys(Map<String, String> map) {
+        StringBuilder sb = new StringBuilder();
+        Iterator<String> it = map.keySet().iterator();
+        if (it.hasNext()) {
+            sb.append(Pattern.quote(it.next()));
+        }
+        while (it.hasNext()) {
+            sb.append('|');
+            sb.append(Pattern.quote(it.next()));
+        }
+        logger.trace(sb.toString());
+        return Pattern.compile(sb.toString());
+    }
 
-			if (args.length < 2) {
-				System.out.println("Unsufficient number of parameters.");
-				System.exit(1);
-			}
+    private Triple mapTriple(Triple t) {
+        logger.trace("Mapping {}", t.toString());
+        return Triple.create(mapNode(t.getSubject()), mapNode(t.getPredicate()), mapNode(t.getObject()));
+    }
 
-			String mappingFile = config.getString("mappingFile");
-			logger.info("Mapping file: " + mappingFile);
-			String outSyntax = config.getString("outSyntax");
-			logger.info("Out syntax: " + outSyntax);
-			String outFolder = args[args.length - 1];
-			logger.info("Out folder: " + outFolder);
-			Map<String, String> prefixMap = loadPrefixMap(mappingFile);
-			boolean useModel = config.getBoolean("useModel");
+    private Node mapNode(Node n) {
+        Node result = n;
+        if (n.isURI()) {
 
-			Pattern p = createRegexWithKeys(prefixMap);
+            String uri = n.getURI();
+            Matcher m = pattern.matcher(uri);
+            if (m.find()) {
+                uri = prefixMap.get(uri.substring(m.start(), m.end())) + uri.substring(m.end());
+            }
+            result = NodeFactory.createURI(uri);
+        }
 
-			for (int i = 0; i < args.length - 1; i++) {
-				logger.trace("IN " + args[i]);
-				File in = new File(args[i]);
-				if (in.isDirectory()) {
-					for (File f : in.listFiles()) {
-						mapPrefixes(f.getAbsolutePath(), outFolder, prefixMap, outSyntax, p, useModel);
-					}
-				} else {
-					mapPrefixes(in.getAbsolutePath(), outFolder, prefixMap, outSyntax, p, useModel);
-				}
-			}
+        return result;
+    }
 
-		} catch (ConfigurationException | FileNotFoundException e) {
-			e.printStackTrace();
-		}
+    @Override
+    public void act(File f) {
 
-	}
+        if (!FilenameUtils.isExtension(f.getAbsolutePath(), PrefixCollector.rdfTripleExtensions) && !FilenameUtils.isExtension(f.getAbsolutePath(), PrefixCollector.rdfQuadsExtensions)) {
+            return;
+        }
 
-	private static void mapPrefixes(String inFilepath, String outFolder, Map<String, String> prefixMap,
-			String outSyntax, Pattern p, boolean useModel) throws CompressorException, IOException {
-		File f = new File(inFilepath);
-		logger.trace("Processing " + inFilepath);
-		if (f.isDirectory()) {
-			new File(outFolder + "/" + f.getName()).mkdirs();
-			for (File child : f.listFiles()) {
-				mapPrefixes(child.getAbsolutePath(), outFolder + "/" + f.getName(), prefixMap, outSyntax, p, useModel);
-			}
-		} else {
-			new File(outFolder).mkdirs();
-			mapPrefixesOfFile(inFilepath, outFolder, prefixMap, outSyntax, p, useModel);
-		}
-	}
+        String outFolder = FilenameUtils.getFullPath(f.getAbsolutePath()).replace(input, output);
+        logger.info("Transforming {}, Path {}, out folder {}", f.getAbsolutePath(), FilenameUtils.getPath(f.getAbsolutePath()), outFolder );
+        File outFolderFile = new File(outFolder);
+        if (!outFolderFile.exists()) {
+            logger.info("Creating Out folder {}", outFolderFile.getAbsolutePath());
+            outFolderFile.mkdirs();
+        }
+        String fileName = FilenameUtils.getBaseName(f.getAbsolutePath());
 
-	private static void mapPrefixesOfFile(String inFilepath, String outFolder, Map<String, String> prefixMap,
-			String outSyntax, Pattern p, boolean useModel) throws CompressorException, IOException {
-		if (FilenameUtils.isExtension(inFilepath, rdfExtensions)) {
-			// TODO manage compression
-			String fileName = FilenameUtils.getBaseName(inFilepath);
-			String outFile = outFolder + "/" + fileName + "."
-					+ RDFLanguages.fileExtToLang(outSyntax).getFileExtensions().get(0);
+        Lang lang = RDFLanguages.filenameToLang(f.getAbsolutePath());
+        String outFile = outFolderFile.getAbsolutePath() + "/" + fileName + "." + lang.getFileExtensions().get(0);
+        logger.info("Out folder {} Out file {}", outFolderFile.getAbsolutePath(),  outFile);
+        try {
+            StreamRDF stream = StreamRDFWriter.getWriterStream(new FileOutputStream(outFile), lang);
+            if (FilenameUtils.isExtension(f.getAbsolutePath(), PrefixCollector.rdfTripleExtensions)) {
+                ClosableIterator<Triple> it = StreamRDFUtils.createIteratorTripleFromFile(f.getAbsolutePath());
+                while (it.hasNext()) stream.triple(mapTriple(it.next()));
+                it.close();
+            } else if (FilenameUtils.isExtension(f.getAbsolutePath(), PrefixCollector.rdfQuadsExtensions)) {
+                ClosableIterator<Quad> it = StreamRDFUtils.createIteratorQuadsFromFile(f.getAbsolutePath());
+                while (it.hasNext()) {
+                    Quad q = it.next();
+                    stream.quad(Quad.create(mapNode(q.getGraph()), mapTriple(q.asTriple())));
+                }
+                it.close();
+            }
+            stream.finish();
+        } catch (CompressorException | IOException e) {
+            throw new RuntimeException(e);
+        }
 
-			ClosableIterator<Triple> it = StreamRDFUtils.createIteratorTripleFromFile(inFilepath);
-			if (!useModel) {
-				StreamRDF stream = StreamRDFWriter.getWriterStream(new FileOutputStream(new File(outFile)),
-						RDFLanguages.fileExtToLang(outSyntax));
-				while (it.hasNext()) {
-					Triple triple = (Triple) it.next();
-					stream.triple(mapTriple(triple, prefixMap, p));
+    }
 
-				}
-				stream.finish();
-			} else {
-				Graph g = GraphFactory.createGraphMem();
-				while (it.hasNext()) {
-					Triple triple = (Triple) it.next();
-					g.add(mapTriple(triple, prefixMap, p));
-				}
-				ModelFactory.createModelForGraph(g).write(new FileOutputStream(new File(outFile)),
-						RDFLanguages.fileExtToLang(outSyntax).getName());
+    private Map<String, String> loadPrefixMap(String mappingFile) throws IOException {
 
-			}
-			it.close();
-		}
-	}
+        Reader in = new FileReader(mappingFile);
+        Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(in);
+        Map<String, String> prefixMap = new HashMap<>();
+        for (CSVRecord record : records) {
+            prefixMap.put(record.get(0), record.get(1));
+            logger.trace(record.get(0) + " -> " + record.get(1));
+        }
+        in.close();
+        logger.trace("Loaded {} mappings", prefixMap.size());
 
-	private static Pattern createRegexWithKeys(Map<String, String> map) {
-		StringBuilder sb = new StringBuilder();
-		Iterator<String> it = map.keySet().iterator();
-		if (it.hasNext()) {
-			sb.append(Pattern.quote(it.next()));
-		}
-		while (it.hasNext()) {
-			sb.append('|');
-			sb.append(Pattern.quote(it.next()));
-		}
-		logger.trace(sb.toString());
-		return Pattern.compile(sb.toString());
-	}
-
-	private static Triple mapTriple(Triple t, Map<String, String> prefixMap, Pattern pattern) {
-		return Triple.createMatch(mapNode(t.getSubject(), prefixMap, pattern),
-				mapNode(t.getPredicate(), prefixMap, pattern), mapNode(t.getObject(), prefixMap, pattern));
-	}
-
-	private static Node mapNode(Node n, Map<String, String> prefixMap, Pattern pattern) {
-		Node result = n;
-		if (n.isURI()) {
-
-			String uri = n.getURI();
-			Matcher m = pattern.matcher(uri);
-			if (m.find()) {
-				uri = prefixMap.get(uri.substring(m.start(), m.end())) + uri.substring(m.end());
-			}
-			result = NodeFactory.createURI(uri);
-		}
-
-		return result;
-	}
-
-	private static Map<String, String> loadPrefixMap(String mappingFile) throws IOException {
-//		CSVReader csvReader = new CSVReader(new FileReader(new File(mappingFile)));
-//		List<String[]> rows = csvReader.readAll();
-//		Iterator<String[]> ri = rows.iterator();
-//		Map<String, String> prefixMap = new HashMap<>();
-//		while (ri.hasNext()) {
-//			String[] strings = ri.next();
-//			prefixMap.put(strings[0], strings[1]);
-//			logger.trace(strings[0] + " -> " + strings[1]);
-//		}
-//		csvReader.close();
-//		logger.trace("Loaded " + prefixMap.size() + " mappings");
-//		return prefixMap;
-		return null;
-	}
+        return prefixMap;
+    }
 }

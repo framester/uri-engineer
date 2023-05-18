@@ -7,9 +7,9 @@ An executable JAR of the tool can be obtained from the Releases page.
 The jar can be executed as follows:
 
 ```
-Prefix Engineer
 usage: java -jar framester.uri-engineer.jar -m
-            (collect-prefixes|refactor-prefixes) -i filepath [-e]
+            (collect-prefixes|refactor-prefixes) -i filepath [-e -mf
+            filepath -o filepath]
  -m,--method <collect-prefixes|refactor-prefixes>   The method to invoke.
                                                     Only two methods
                                                     available
@@ -27,10 +27,15 @@ usage: java -jar framester.uri-engineer.jar -m
                                                     input files.
  -i,--input <filepath>                              A path to a file or a
                                                     folder.
+ -mf,--mapping-file <filepath>                      A path to a csv file
+                                                    (Mandatory for
+                                                    refactor-prefixes).
+ -o,--output-folder <filepath>                      A path to an output
+                                                    folder (Mandatory for
+                                                    refactor-prefixes).
  -e,--collect-examples                              If set, the tool will
                                                     collect examples of
                                                     URIs for each prefix.
-
 ```
 
 ##  License

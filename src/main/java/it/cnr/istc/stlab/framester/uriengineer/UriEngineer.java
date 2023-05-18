@@ -4,6 +4,8 @@ import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+
 public class UriEngineer {
 
     private static final Logger logger = LoggerFactory.getLogger(UriEngineer.class);
@@ -15,19 +17,23 @@ public class UriEngineer {
     private static final String METHOD = "m";
     private static final String INPUT = "i";
     private static final String COLLECT_EXAMPLES = "e";
+    private static final String MAPPING_FILE = "mf";
+    private static final String OUTPUT = "o";
 
     public static void printHelp() {
         HelpFormatter formatter = new HelpFormatter();
         formatter.setOptionComparator(null);
-        formatter.printHelp("java -jar framester.uri-engineer.jar -m (" + COLLECT_PREFIXES + "|" + REFACTOR_PREFIXES + ") -i filepath [-e] ", options);
+        formatter.printHelp("java -jar framester.uri-engineer.jar -m (" + COLLECT_PREFIXES + "|" + REFACTOR_PREFIXES + ") -i filepath [-e -mf filepath -o filepath] ", options);
     }
 
-    public static void main(String[] args) throws ParseException {
+    public static void main(String[] args) throws ParseException, IOException {
 
-        logger.info("Prefix Engineer");
+        logger.info("URI Engineer");
 
         options.addOption(Option.builder(METHOD).argName(COLLECT_PREFIXES + "|" + REFACTOR_PREFIXES).hasArg().required(true).desc("The method to invoke. Only two methods available '" + COLLECT_PREFIXES + "' and '" + REFACTOR_PREFIXES + "'. By passing '" + COLLECT_PREFIXES + "' the tool returns the set of prefixes used in the URIs files. By passing '" + REFACTOR_PREFIXES + "', the tool performs the refactoring of the input files.").longOpt("method").build());
         options.addOption(Option.builder(INPUT).argName("filepath").hasArg().required(true).desc("A path to a file or a folder.").longOpt("input").build());
+        options.addOption(Option.builder(MAPPING_FILE).argName("filepath").hasArg().required(false).desc("A path to a csv file (Mandatory for "+ REFACTOR_PREFIXES+").").longOpt("mapping-file").build());
+        options.addOption(Option.builder(OUTPUT).argName("filepath").hasArg().required(false).desc("A path to an output folder (Mandatory for "+ REFACTOR_PREFIXES+").").longOpt("output-folder").build());
         options.addOption(Option.builder(COLLECT_EXAMPLES).argName("collect-examples").required(false).desc("If set, the tool will collect examples of URIs for each prefix.").longOpt("collect-examples").build());
 
         if (args.length == 0) {
@@ -38,8 +44,11 @@ public class UriEngineer {
         CommandLineParser cmdLineParser = new DefaultParser();
         CommandLine commandLine = cmdLineParser.parse(options, args);
 
-        String method = getMethod(commandLine);
-        String input = getInput(commandLine);
+        String method = getMandatoryOption(commandLine, METHOD);
+        String input = getMandatoryOption(commandLine, INPUT);
+        String mappingFile = getMandatoryOption(commandLine, MAPPING_FILE);
+        String output = getMandatoryOption(commandLine, OUTPUT);
+        InputTraverser it = new InputTraverser(input);
 
         if (method != null || input != null) {
             if (method.equals(COLLECT_PREFIXES)) {
@@ -49,7 +58,7 @@ public class UriEngineer {
                     logger.info("Collect examples");
                     pc.setCollectUriExamples(true);
                 }
-                InputTraverser it = new InputTraverser(input);
+
                 it.traverse(pc);
                 if (commandLine.hasOption(COLLECT_EXAMPLES)) {
                     pc.getCollectedExamples().forEach((prefix, examples) -> {
@@ -66,28 +75,32 @@ public class UriEngineer {
 
                     pc.getCollectedPrefixes().forEach(System.out::println);
                 }
+            } else if (method.equals(REFACTOR_PREFIXES)) {
+                logger.info("Refactor prefixes");
+                PrefixRefactorizer pr = new PrefixRefactorizer(input, output, mappingFile);
+                it.traverse(pr);
             }
         }
 
 
     }
 
-    public static String getMethod(CommandLine commandLine) {
-        if (commandLine.hasOption(METHOD)) {
-            logger.trace("Method {}", commandLine.getOptionValue(METHOD));
-            return commandLine.getOptionValue(METHOD);
+
+
+    public static String getMandatoryOption(CommandLine commandLine, String option) {
+        if (commandLine.hasOption(option)) {
+            logger.trace("{} {}", option, commandLine.getOptionValue(option));
+            return commandLine.getOptionValue(option);
         } else {
             printHelp();
         }
         return null;
     }
 
-    public static String getInput(CommandLine commandLine) {
-        if (commandLine.hasOption(INPUT)) {
-            logger.trace("Input {}", commandLine.getOptionValue(INPUT));
-            return commandLine.getOptionValue(INPUT);
-        } else {
-            printHelp();
+    public static String getOption(CommandLine commandLine, String option) {
+        if (commandLine.hasOption(option)) {
+            logger.trace("{} {}", option, commandLine.getOptionValue(option));
+            return commandLine.getOptionValue(option);
         }
         return null;
     }

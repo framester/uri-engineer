@@ -20,8 +20,8 @@ import java.util.*;
 public class PrefixCollector implements Action {
 
     private static final Logger logger = LoggerFactory.getLogger(PrefixCollector.class);
-    private static final Set<String> rdfTripleExtensions = Sets.newHashSet("ttl", "nt", "rdf", "owl");
-    private static final Set<String> rdfQuadsExtensions = Sets.newHashSet("nq");
+    public static final Set<String> rdfTripleExtensions = Sets.newHashSet("ttl", "nt", "rdf", "owl");
+    public static final Set<String> rdfQuadsExtensions = Sets.newHashSet("nq");
     private final Set<String> prefixes = new HashSet<>();
     private final Map<String, Set<String>> examples = new HashMap<>();
     private boolean collectUriExamples = false;
