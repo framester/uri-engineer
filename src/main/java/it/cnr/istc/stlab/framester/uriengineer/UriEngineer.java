@@ -23,7 +23,7 @@ public class UriEngineer {
     public static void printHelp() {
         HelpFormatter formatter = new HelpFormatter();
         formatter.setOptionComparator(null);
-        formatter.printHelp("java -jar framester.uri-engineer.jar -m (" + COLLECT_PREFIXES + "|" + REFACTOR_PREFIXES + ") -i filepath [-e -mf filepath -o filepath] ", options);
+        formatter.printHelp("java -jar framester.uri-engineer-<version>.jar -m (" + COLLECT_PREFIXES + "|" + REFACTOR_PREFIXES + ") -i filepath [-e -mf filepath -o filepath] ", options);
     }
 
     public static void main(String[] args) throws ParseException, IOException {
@@ -46,8 +46,8 @@ public class UriEngineer {
 
         String method = getMandatoryOption(commandLine, METHOD);
         String input = getMandatoryOption(commandLine, INPUT);
-        String mappingFile = getMandatoryOption(commandLine, MAPPING_FILE);
-        String output = getMandatoryOption(commandLine, OUTPUT);
+        String mappingFile = getOption(commandLine, MAPPING_FILE);
+        String output = getOption(commandLine, OUTPUT);
         InputTraverser it = new InputTraverser(input);
 
         if (method != null || input != null) {

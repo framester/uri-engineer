@@ -7,7 +7,7 @@ An executable JAR of the tool can be obtained from the Releases page.
 The jar can be executed as follows:
 
 ```
-usage: java -jar framester.uri-engineer.jar -m
+usage: java -jar framester.uri-engineer-<version>.jar -m
             (collect-prefixes|refactor-prefixes) -i filepath [-e -mf
             filepath -o filepath]
  -m,--method <collect-prefixes|refactor-prefixes>   The method to invoke.
