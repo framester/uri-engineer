@@ -14,6 +14,7 @@ import org.apache.jena.riot.RDFLanguages;
 import org.apache.jena.riot.system.StreamRDF;
 import org.apache.jena.riot.system.StreamRDFWriter;
 import org.apache.jena.sparql.core.Quad;
+import org.apache.jena.vocabulary.OWL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +31,16 @@ public class PrefixRefactorizer implements Action {
     private final String input;
     private final String output;
 
+    public void setSameAsFile(String sameAsFolder) {
+        new File(sameAsFolder).mkdirs();
+        this.sameAsFolder = sameAsFolder;
+    }
+
+    private  String sameAsFolder;
+
     private final Pattern pattern;
+    private  Map<String, String> sameAsLinks = new HashMap<>();
+    private boolean generateSameAsLinks;
 
     public PrefixRefactorizer(String input, String output, String mappingFile) throws IOException {
         logger.info("Input {}\nOutput {}\nMapping file {}", input, output, mappingFile);
@@ -39,6 +49,14 @@ public class PrefixRefactorizer implements Action {
         this.output = output;
         new File(output).mkdirs();
         this.pattern = createRegexWithKeys(prefixMap);
+    }
+
+    public boolean isGenerateSameAsLinks() {
+        return generateSameAsLinks;
+    }
+
+    public void setGenerateSameAsLinks(boolean generateSameAsLinks) {
+        this.generateSameAsLinks = generateSameAsLinks;
     }
 
     private Pattern createRegexWithKeys(Map<String, String> map) {
@@ -70,6 +88,10 @@ public class PrefixRefactorizer implements Action {
                 uri = prefixMap.get(uri.substring(m.start(), m.end())) + uri.substring(m.end());
             }
             result = NodeFactory.createURI(uri);
+
+            if (!n.getURI().equals(uri) && generateSameAsLinks) {
+                sameAsLinks.put(uri, n.getURI());
+            }
         }
 
         return result;
@@ -83,7 +105,7 @@ public class PrefixRefactorizer implements Action {
         }
 
         String outFolder = FilenameUtils.getFullPath(f.getAbsolutePath()).replace(input, output);
-        logger.info("Transforming {}, Path {}, out folder {}", f.getAbsolutePath(), FilenameUtils.getPath(f.getAbsolutePath()), outFolder );
+        logger.info("Transforming {}, Path {}, out folder {}", f.getAbsolutePath(), FilenameUtils.getPath(f.getAbsolutePath()), outFolder);
         File outFolderFile = new File(outFolder);
         if (!outFolderFile.exists()) {
             logger.info("Creating Out folder {}", outFolderFile.getAbsolutePath());
@@ -93,7 +115,11 @@ public class PrefixRefactorizer implements Action {
 
         Lang lang = RDFLanguages.filenameToLang(f.getAbsolutePath());
         String outFile = outFolderFile.getAbsolutePath() + "/" + fileName + "." + lang.getFileExtensions().get(0);
-        logger.info("Out folder {} Out file {}", outFolderFile.getAbsolutePath(),  outFile);
+
+        if(generateSameAsLinks)
+            sameAsLinks = new HashMap<>();
+
+        logger.info("Out folder {} Out file {}", outFolderFile.getAbsolutePath(), outFile);
         try {
             StreamRDF stream = StreamRDFWriter.getWriterStream(new FileOutputStream(outFile), lang);
             if (FilenameUtils.isExtension(f.getAbsolutePath(), PrefixCollector.rdfTripleExtensions)) {
@@ -109,11 +135,22 @@ public class PrefixRefactorizer implements Action {
                 it.close();
             }
             stream.finish();
+
+            if (generateSameAsLinks)
+                generateSameAsLinks();
+
         } catch (CompressorException | IOException e) {
             throw new RuntimeException(e);
         }
 
     }
+
+    private void generateSameAsLinks() throws FileNotFoundException {
+        StreamRDF stream = StreamRDFWriter.getWriterStream(new FileOutputStream(sameAsFolder+"/sameAs.nt", true), Lang.NT);
+        sameAsLinks.forEach((k, v) -> stream.triple(Triple.create(NodeFactory.createURI(k), OWL.sameAs.asNode(), NodeFactory.createURI(v))));
+        stream.finish();
+    }
+
 
     private Map<String, String> loadPrefixMap(String mappingFile) throws IOException {
 
