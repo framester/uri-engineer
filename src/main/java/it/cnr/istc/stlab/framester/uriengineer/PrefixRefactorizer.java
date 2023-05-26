@@ -114,12 +114,15 @@ public class PrefixRefactorizer implements Action {
         String fileName = FilenameUtils.getBaseName(f.getAbsolutePath());
 
         Lang lang = RDFLanguages.filenameToLang(f.getAbsolutePath());
+        if(lang.equals(Lang.RDFXML)){
+            lang = Lang.TTL;
+        }
         String outFile = outFolderFile.getAbsolutePath() + "/" + fileName + "." + lang.getFileExtensions().get(0);
 
         if(generateSameAsLinks)
             sameAsLinks = new HashMap<>();
 
-        logger.info("Out folder {} Out file {}", outFolderFile.getAbsolutePath(), outFile);
+        logger.info("\nInput File {}\nOut folder {}\nOut file {}\n\n",f.getAbsolutePath(), outFolderFile.getAbsolutePath(), outFile);
         try {
             StreamRDF stream = StreamRDFWriter.getWriterStream(new FileOutputStream(outFile), lang);
             if (FilenameUtils.isExtension(f.getAbsolutePath(), PrefixCollector.rdfTripleExtensions)) {
