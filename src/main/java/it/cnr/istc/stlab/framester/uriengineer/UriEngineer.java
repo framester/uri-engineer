@@ -74,9 +74,10 @@ public class UriEngineer {
                         }
                         System.out.print("\n");
                     });
-                } else {
-                    pc.getCollectedPrefixes().forEach(System.out::println);
                 }
+
+                pc.getCollectedPrefixes().forEach(System.out::println);
+
             } else if (method.equals(REFACTOR_PREFIXES)) {
                 logger.info("Refactor prefixes");
                 PrefixRefactorizer pr = new PrefixRefactorizer(input, output, mappingFile);
