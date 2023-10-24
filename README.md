@@ -15,7 +15,7 @@ The jar can be executed as follows:
 ```
 usage: java -jar framester.uri-engineer-<version>.jar -m
             (collect-prefixes|refactor-prefixes) -i filepath [-e -mf
-            filepath -o filepath]
+            filepath -o filepath -x regex]
  -m,--method <collect-prefixes|refactor-prefixes>   The method to invoke.
                                                     Only two methods
                                                     available
@@ -52,6 +52,11 @@ usage: java -jar framester.uri-engineer-<version>.jar -m
                                                     directory whose path
                                                     is passed as
                                                     parameter.
+ -x,--exclude-files <regex>                         If set, the tool will
+                                                    exclude the input
+                                                    files that match the
+                                                    given regular
+                                                    expression.
 ```
 
 ##  License

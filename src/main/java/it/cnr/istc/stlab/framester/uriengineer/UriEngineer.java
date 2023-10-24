@@ -21,10 +21,12 @@ public class UriEngineer {
     private static final String OUTPUT = "o";
     private static final String GENERATE_SAME_AS = "s";
 
+    private static final String EXCLUDE="x";
+
     public static void printHelp() {
         HelpFormatter formatter = new HelpFormatter();
         formatter.setOptionComparator(null);
-        formatter.printHelp("java -jar framester.uri-engineer-<version>.jar -m (" + COLLECT_PREFIXES + "|" + REFACTOR_PREFIXES + ") -i filepath [-e -mf filepath -o filepath] ", options);
+        formatter.printHelp("java -jar framester.uri-engineer-<version>.jar -m (" + COLLECT_PREFIXES + "|" + REFACTOR_PREFIXES + ") -i filepath [-e -mf filepath -o filepath -x regex] ", options);
     }
 
     public static void main(String[] args) throws ParseException, IOException {
@@ -37,6 +39,7 @@ public class UriEngineer {
         options.addOption(Option.builder(OUTPUT).argName("filepath").hasArg().required(false).desc("A path to an output folder (Mandatory for " + REFACTOR_PREFIXES + ").").longOpt("output-folder").build());
         options.addOption(Option.builder(COLLECT_EXAMPLES).argName("collect-examples").required(false).desc("If set, the tool will collect examples of URIs for each prefix.").longOpt("collect-examples").build());
         options.addOption(Option.builder(GENERATE_SAME_AS).hasArg().argName("filepath").required(false).desc("If set, the tool will generate sameAs links for the URIs changed. SameAs links will be included in a single file that will be stored in the directory whose path is passed as parameter.").longOpt("generate-sameAs-links").build());
+        options.addOption(Option.builder(EXCLUDE).hasArg().argName("regex").required(false).desc("If set, the tool will exclude the input files that match the given regular expression.").longOpt("exclude-files").build());
 
         if (args.length == 0) {
             printHelp();
@@ -51,13 +54,19 @@ public class UriEngineer {
         String mappingFile = getStringOption(commandLine, MAPPING_FILE);
         String output = getStringOption(commandLine, OUTPUT);
         String generateSameAs = getStringOption(commandLine, GENERATE_SAME_AS);
+        String exclude = getStringOption(commandLine, EXCLUDE);
 
         InputTraverser it = new InputTraverser(input);
+
+        if(commandLine.hasOption(EXCLUDE)){
+            it.excludeFiles(exclude);
+        }
 
         if (method != null || input != null) {
             if (method.equals(COLLECT_PREFIXES)) {
                 logger.info("Collect prefixes");
                 PrefixCollector pc = new PrefixCollector();
+
                 if (commandLine.hasOption(COLLECT_EXAMPLES)) {
                     logger.info("Collect examples");
                     pc.setCollectUriExamples(true);
