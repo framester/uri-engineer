@@ -11,12 +11,12 @@ public class PrefixCollectorTest {
     @Test
     public void test1(){
         PrefixCollector pc = new PrefixCollector();
-        pc.collectPrefixOfNode(NodeFactory.createURI("https://example.com/test/"));
-        pc.collectPrefixOfNode(NodeFactory.createURI("https://example.com/test/a"));
-        pc.collectPrefixOfUriString("https://example.com/test/a");
-        pc.collectPrefixOfUriString("https://example.com/test/a#");
-        pc.collectPrefixOfUriString("https://example.com/test/a#asd");
+        pc.collectPrefixOfNode(NodeFactory.createURI("https://example.com/test/"), "");
+        pc.collectPrefixOfNode(NodeFactory.createURI("https://example.com/test/a"),"");
+        pc.collectPrefixOfUriString("https://example.com/test/a","");
+        pc.collectPrefixOfUriString("https://example.com/test/a#","");
+        pc.collectPrefixOfUriString("https://example.com/test/a#asd", "");
 
-        Assert.assertEquals(Sets.newHashSet("https://example.com/test/", "https://example.com/test/a#"),pc.getCollectedPrefixes());
+        Assert.assertEquals(Sets.newHashSet("https://example.com/test/", "https://example.com/test/a#"),pc.getCollectedPrefixes().keySet());
     }
 }

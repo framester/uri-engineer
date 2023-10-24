@@ -3,7 +3,6 @@ package it.cnr.istc.stlab.framester.uriengineer;
 import com.github.jsonldjava.shaded.com.google.common.collect.Sets;
 import it.cnr.istc.stlab.lgu.commons.semanticweb.iterators.ClosableIterator;
 import it.cnr.istc.stlab.lgu.commons.semanticweb.streams.StreamRDFUtils;
-import org.apache.commons.collections.list.FixedSizeList;
 import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -22,7 +21,7 @@ public class PrefixCollector implements Action {
     private static final Logger logger = LoggerFactory.getLogger(PrefixCollector.class);
     public static final Set<String> rdfTripleExtensions = Sets.newHashSet("ttl", "nt", "rdf", "owl");
     public static final Set<String> rdfQuadsExtensions = Sets.newHashSet("nq");
-    private final Set<String> prefixes = new HashSet<>();
+    private final HashMap<String, Set<String>> prefixes = new HashMap<>();
     private final Map<String, Set<String>> examples = new HashMap<>();
     private boolean collectUriExamples = false;
     private final int nOfExamples = 10;
@@ -39,19 +38,19 @@ public class PrefixCollector implements Action {
         this.collectUriExamples = collectUriExamples;
     }
 
-    public void collectPrefixOfNode(Node n) {
+    public void collectPrefixOfNode(Node n, String inputFile) {
         if (n.isURI()) {
-            collectPrefixOfUriString(n.getURI());
+            collectPrefixOfUriString(n.getURI(), inputFile);
         }
     }
 
-    public void collectPrefixOfNodesOfTriple(Triple t) {
-        collectPrefixOfNode(t.getSubject());
-        collectPrefixOfNode(t.getPredicate());
-        collectPrefixOfNode(t.getObject());
+    public void collectPrefixOfNodesOfTriple(Triple t, String inputFile) {
+        collectPrefixOfNode(t.getSubject(), inputFile);
+        collectPrefixOfNode(t.getPredicate(), inputFile);
+        collectPrefixOfNode(t.getObject(), inputFile);
     }
 
-    public void collectPrefixOfUriString(String uri) {
+    public void collectPrefixOfUriString(String uri, String inputFile) {
         String prefixToAdd;
         if (uri.contains("#")) {
             if (uri.charAt(uri.length() - 1) == '#') {
@@ -69,14 +68,19 @@ public class PrefixCollector implements Action {
                 prefixToAdd = StringUtils.join(Arrays.asList(split).subList(0, split.length - 1), "/").concat("/");
             }
         }
-        prefixes.add(prefixToAdd);
+        Set<String> files = prefixes.get(prefixToAdd);
+        if(files==null){
+            files = new HashSet<>();
+        }
+        files.add(inputFile);
+        prefixes.put(prefixToAdd, files);
         if (collectUriExamples) {
             collectExample(prefixToAdd, uri);
         }
 
     }
 
-    public Set<String> getCollectedPrefixes() {
+    public HashMap<String, Set<String>> getCollectedPrefixes() {
         return prefixes;
     }
 
@@ -90,7 +94,7 @@ public class PrefixCollector implements Action {
             try {
                 ClosableIterator<Triple> it = StreamRDFUtils.createIteratorTripleFromFile(f.getAbsolutePath());
                 while (it.hasNext()) {
-                    collectPrefixOfNodesOfTriple(it.next());
+                    collectPrefixOfNodesOfTriple(it.next(), f.getAbsolutePath());
                 }
             } catch (CompressorException | IOException e) {
                 throw new RuntimeException(e);
@@ -100,8 +104,8 @@ public class PrefixCollector implements Action {
                 Iterator<Quad> it = StreamRDFUtils.createIteratorQuadsFromFile(f.getAbsolutePath());
                 while (it.hasNext()) {
                     Quad q = it.next();
-                    collectPrefixOfNode(q.getGraph());
-                    collectPrefixOfNodesOfTriple(q.asTriple());
+                    collectPrefixOfNode(q.getGraph(), f.getAbsolutePath());
+                    collectPrefixOfNodesOfTriple(q.asTriple(), f.getAbsolutePath());
                 }
             } catch (CompressorException | IOException e) {
                 throw new RuntimeException(e);
