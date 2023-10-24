@@ -1,5 +1,6 @@
 package it.cnr.istc.stlab.framester.uriengineer;
 
+import com.google.common.collect.Lists;
 import it.cnr.istc.stlab.lgu.commons.semanticweb.iterators.ClosableIterator;
 import it.cnr.istc.stlab.lgu.commons.semanticweb.streams.StreamRDFUtils;
 import org.apache.commons.compress.compressors.CompressorException;
@@ -19,9 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -61,7 +60,9 @@ public class PrefixRefactorizer implements Action {
 
     private Pattern createRegexWithKeys(Map<String, String> map) {
         StringBuilder sb = new StringBuilder();
-        Iterator<String> it = map.keySet().iterator();
+        List<String> prefixesToMatch = Lists.newArrayList(map.keySet());
+        prefixesToMatch.sort(Comparator.comparingInt(String::length).reversed());
+        Iterator<String> it = prefixesToMatch.iterator();
         if (it.hasNext()) {
             sb.append(Pattern.quote(it.next()));
         }
