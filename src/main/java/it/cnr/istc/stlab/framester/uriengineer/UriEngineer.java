@@ -86,7 +86,7 @@ public class UriEngineer {
                 }
 
                 pc.getCollectedPrefixes().forEach((k,v)->{
-                    System.out.println(k + " -> "+ String.join(" ", v));
+                    System.out.println(k + " ->\n\t"+ String.join("\n\t", v));
                 });
 
             } else if (method.equals(REFACTOR_PREFIXES)) {
